@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Repository Analyzer</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+{% if error %}
+
+    <h2>{{ error }}</h2>
+
+    <a href="/">⬅ Search Again</a>
+
+{% else %}
+
+    <img src="{{ profile.avatar_url }}" class="avatar">
+
+    <h1>{{ profile.name }}</h1>
+
+    <h3>@{{ profile.login }}</h3>
+
+    <p>{{ profile.bio }}</p>
+
+    <div class="stats">
+
+        <div>
+            <h2>{{ profile.followers }}</h2>
+            <p>Followers</p>
+        </div>
+
+        <div>
+            <h2>{{ profile.following }}</h2>
+            <p>Following</p>
+        </div>
+
+        <div>
+            <h2>{{ profile.public_repos }}</h2>
+            <p>Repositories</p>
+        </div>
+
+    </div>
+
+    <hr>
+
+    <h2>Repository Analysis</h2>
+
+    <p><strong>Total Stars:</strong> ⭐ {{ stars }}</p>
+
+    <p><strong>Most Used Language:</strong> {{ top_language }}</p>
+
+    {% if top_repo %}
+    <p>
+        <strong>Top Repository:</strong>
+
+        <a href="{{ top_repo.html_url }}" target="_blank">
+
+            {{ top_repo.name }}
+
+        </a>
+
+        (⭐ {{ top_repo.stargazers_count }})
+
+    </p>
+    {% endif %}
+
+    <hr>
+
+    <h2>Recent Repositories</h2>
+
+    <ul>
+
+    {% for repo in recent %}
+
+        <li>
+
+            <a href="{{ repo.html_url }}" target="_blank">
+
+                {{ repo.name }}
+
+            </a>
+
+            ⭐ {{ repo.stargazers_count }}
+
+        </li>
+
+    {% endfor %}
+
+    </ul>
+
+    <br>
+
+    <a href="/">⬅ Search Another User</a>
+
+{% endif %}
+
+</div>
+
+</body>
+</html>

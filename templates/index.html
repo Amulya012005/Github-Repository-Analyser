@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Repository Analyzer</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>GitHub Repository Analyzer</h1>
+
+        <p>
+            Search any GitHub user and view profile statistics.
+        </p>
+
+        <form action="/search" method="POST">
+
+            <input
+                type="text"
+                name="username"
+                placeholder="Enter GitHub Username"
+                required
+            >
+
+            <button type="submit">
+                Analyze
+            </button>
+
+        </form>
+
+    </div>
+
+</body>
+</html>
