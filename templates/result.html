@@ -7,6 +7,14 @@
     <title>GitHub Repository Analyzer</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        .chart-card { background:#fff; color:#222; border:1px solid #ddd; border-radius:12px; padding:16px; margin:16px 0; text-align:left; }
+        .chart-card h3 { margin:0 0 10px; color:#222; }
+        .chart-box { position:relative; height:260px; }
+        .lang-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:14px; color:#222; }
+        .lang-table th, .lang-table td { padding:6px 8px; border-bottom:1px solid #eee; text-align:left; }
+    </style>
 </head>
 
 <body>
@@ -21,13 +29,13 @@
 
 {% else %}
 
-    <img src="{{ profile.avatar_url }}" class="avatar">
+    <img src="{{ profile.avatar_url }}" class="avatar" alt="Avatar of {{ profile.login }}">
 
-    <h1>{{ profile.name }}</h1>
+    <h1>{{ profile.name or profile.login }}</h1>
 
     <h3>@{{ profile.login }}</h3>
 
-    <p>{{ profile.bio }}</p>
+    {% if profile.bio %}<p>{{ profile.bio }}</p>{% endif %}
 
     <div class="stats">
 
@@ -59,16 +67,57 @@
     {% if top_repo %}
     <p>
         <strong>Top Repository:</strong>
-
-        <a href="{{ top_repo.html_url }}" target="_blank">
-
-            {{ top_repo.name }}
-
-        </a>
-
+        <a href="{{ top_repo.html_url }}" target="_blank" rel="noopener">{{ top_repo.name }}</a>
         (⭐ {{ top_repo.stargazers_count }})
-
     </p>
+    {% endif %}
+
+    {% if analytics %}
+
+    <div class="stats">
+        <div>
+            <h2>{{ analytics.total_forks }}</h2>
+            <p>Total Forks</p>
+        </div>
+        <div>
+            <h2>{{ analytics.original_repos }}</h2>
+            <p>Original Repos</p>
+        </div>
+        <div>
+            <h2>{{ analytics.forked_repos }}</h2>
+            <p>Forked Repos</p>
+        </div>
+        <div>
+            <h2>{{ analytics.avg_stars }}</h2>
+            <p>Avg Stars / Repo</p>
+        </div>
+    </div>
+
+    {% if analytics.languages.labels %}
+    <div class="chart-card">
+        <h3>Language Breakdown</h3>
+        <div class="chart-box"><canvas id="langChart"></canvas></div>
+        <table class="lang-table">
+            <tr><th>Language</th><th>Repos</th><th>Share</th></tr>
+            {% for row in analytics.lang_table %}
+            <tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>{{ row.pct }}%</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endif %}
+
+    {% if analytics.has_stars %}
+    <div class="chart-card">
+        <h3>Top Repositories by Stars</h3>
+        <div class="chart-box"><canvas id="starsChart"></canvas></div>
+    </div>
+    {% endif %}
+
+    <div class="chart-card">
+        <h3>Repositories Created per Year</h3>
+        <div class="chart-box"><canvas id="yearChart"></canvas></div>
+    </div>
+
     {% endif %}
 
     <hr>
@@ -76,28 +125,54 @@
     <h2>Recent Repositories</h2>
 
     <ul>
-
     {% for repo in recent %}
-
         <li>
-
-            <a href="{{ repo.html_url }}" target="_blank">
-
-                {{ repo.name }}
-
-            </a>
-
+            <a href="{{ repo.html_url }}" target="_blank" rel="noopener">{{ repo.name }}</a>
             ⭐ {{ repo.stargazers_count }}
-
         </li>
-
     {% endfor %}
-
     </ul>
 
     <br>
 
     <a href="/">⬅ Search Another User</a>
+
+    {% if analytics %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        const A = {{ analytics | tojson }};
+        const palette = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#64748b"];
+        const barOptions = {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        };
+
+        const langEl = document.getElementById("langChart");
+        if (langEl) {
+            new Chart(langEl, {
+                type: "doughnut",
+                data: { labels: A.languages.labels, datasets: [{ data: A.languages.values, backgroundColor: palette }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: "right" } } }
+            });
+        }
+
+        const starsEl = document.getElementById("starsChart");
+        if (starsEl) {
+            new Chart(starsEl, {
+                type: "bar",
+                data: { labels: A.top_stars.labels, datasets: [{ data: A.top_stars.values, backgroundColor: "#4f46e5" }] },
+                options: barOptions
+            });
+        }
+
+        new Chart(document.getElementById("yearChart"), {
+            type: "bar",
+            data: { labels: A.years.labels, datasets: [{ data: A.years.values, backgroundColor: "#10b981" }] },
+            options: barOptions
+        });
+    </script>
+    {% endif %}
 
 {% endif %}
 

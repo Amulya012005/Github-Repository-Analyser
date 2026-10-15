@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import pandas as pd
 from collections import Counter
 
 import requests
@@ -72,6 +73,52 @@ def get_user_data(username):
     return profile, repos
 
 
+def build_analytics(repos):
+    """Summarise a user's repos with Pandas for the charts and stat tiles."""
+    if not repos:
+        return None
+
+    df = pd.DataFrame(repos)
+    df["created_at"] = pd.to_datetime(df["created_at"])
+
+    # Language breakdown (top 8)
+    lang_counts = df["language"].dropna().value_counts().head(8)
+    lang_total = int(df["language"].notna().sum())
+    languages = {
+        "labels": list(lang_counts.index),
+        "values": [int(v) for v in lang_counts.values],
+    }
+    lang_table = [
+        {"name": name, "count": int(count), "pct": round(100 * count / lang_total, 1)}
+        for name, count in lang_counts.items()
+    ] if lang_total else []
+
+    # Top 5 repos by stars
+    top = df.nlargest(5, "stargazers_count")
+    top_stars = {
+        "labels": list(top["name"]),
+        "values": [int(v) for v in top["stargazers_count"]],
+    }
+
+    # Repos created per year
+    per_year = df.groupby(df["created_at"].dt.year).size()
+    years = {
+        "labels": [str(y) for y in per_year.index],
+        "values": [int(v) for v in per_year.values],
+    }
+
+    return {
+        "languages": languages,
+        "lang_table": lang_table,
+        "top_stars": top_stars,
+        "has_stars": bool(df["stargazers_count"].max() > 0),
+        "years": years,
+        "total_forks": int(df["forks_count"].sum()),
+        "original_repos": int((~df["fork"]).sum()),
+        "forked_repos": int(df["fork"].sum()),
+        "avg_stars": round(float(df["stargazers_count"].mean()), 1),
+    }
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -106,6 +153,7 @@ def search():
         top_language=top_language,
         top_repo=top_repo,
         recent=recent,
+        analytics=build_analytics(repos),
         error=None,
     )
 
