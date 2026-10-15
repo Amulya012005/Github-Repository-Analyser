@@ -25,14 +25,18 @@ class GitHubError(Exception):
     """An error with a message that is safe to show to the user."""
 
 
-def gh_get(path, params=None):
+def gh_get(path, params=None, use_token=True):
     headers = {"Accept": "application/vnd.github+json"}
-    if GITHUB_TOKEN:
+    if GITHUB_TOKEN and use_token:
         headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
     try:
         resp = requests.get(f"{GITHUB_API}{path}", headers=headers, params=params, timeout=10)
     except requests.RequestException:
         raise GitHubError("Could not reach GitHub. Please try again.")
+
+    # A bad or expired token should not break the site: retry without it
+    if resp.status_code == 401 and use_token and GITHUB_TOKEN:
+        return gh_get(path, params, use_token=False)
 
     if resp.status_code == 404:
         raise GitHubError("GitHub User Not Found!")
