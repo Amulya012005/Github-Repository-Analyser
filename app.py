@@ -1,9 +1,9 @@
 import os
 import re
 import time
-import pandas as pd
 from collections import Counter
 
+import pandas as pd
 import requests
 from dotenv import load_dotenv
 from flask import Flask, render_template, request
@@ -123,6 +123,78 @@ def build_analytics(repos):
         "avg_stars": round(float(df["stargazers_count"].mean()), 1),
     }
 
+
+def build_insights(repos):
+    """Profile health report based on the user's own (non-fork) repos."""
+    own = [r for r in repos if not r.get("fork")]
+    if not own:
+        return None
+
+    n = len(own)
+    now = pd.Timestamp.now(tz="UTC")
+
+    with_desc = sum(1 for r in own if (r.get("description") or "").strip())
+    with_topics = sum(1 for r in own if r.get("topics"))
+    with_license = sum(1 for r in own if r.get("license"))
+
+    ages = [
+        (now - pd.to_datetime(r["pushed_at"], utc=True)).days
+        for r in own if r.get("pushed_at")
+    ]
+    active = sum(1 for a in ages if a <= 180)
+    stale = sum(1 for a in ages if a > 365)
+
+    # Heuristic score out of 100 (weights are my own judgement, not a GitHub metric)
+    score = round(
+        30 * with_desc / n
+        + 20 * with_topics / n
+        + 15 * with_license / n
+        + 25 * active / n
+        + 10 * min(n / 5, 1)
+    )
+
+    tips = []
+    if n - with_desc:
+        tips.append(f"Add a description to {n - with_desc} repo(s).")
+    if n - with_topics:
+        tips.append(f"Add topics to {n - with_topics} repo(s) so people can find them.")
+    if n - with_license:
+        tips.append(f"Add a license to {n - with_license} repo(s).")
+    if stale:
+        tips.append(f"{stale} repo(s) haven't been updated in over a year. Archive or refresh them.")
+    if n < 5:
+        tips.append("Pin 4 to 6 strong projects with clear READMEs.")
+
+    return {
+        "score": score,
+        "original_count": n,
+        "pct_description": round(100 * with_desc / n),
+        "pct_topics": round(100 * with_topics / n),
+        "pct_license": round(100 * with_license / n),
+        "active": active,
+        "stale": stale,
+        "tips": tips,
+    }
+
+
+def build_language_trend(repos):
+    """Repos created per year, split by language (top 5 plus 'Other')."""
+    df = pd.DataFrame(repos).dropna(subset=["language"])
+    if df.empty:
+        return None
+    df["year"] = pd.to_datetime(df["created_at"]).dt.year.astype(str)
+    top = df["language"].value_counts().head(5).index
+    df["lang"] = df["language"].where(df["language"].isin(top), "Other")
+    table = df.groupby(["year", "lang"]).size().unstack(fill_value=0).sort_index()
+    return {
+        "labels": list(table.index),
+        "datasets": [
+            {"label": lang, "data": [int(v) for v in table[lang]]}
+            for lang in table.columns
+        ],
+    }
+
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -149,6 +221,11 @@ def search():
 
     recent = sorted(repos, key=lambda x: x["created_at"], reverse=True)[:5]
 
+    analytics = build_analytics(repos)
+    if analytics:
+        analytics["insights"] = build_insights(repos)
+        analytics["trend"] = build_language_trend(repos)
+
     return render_template(
         "result.html",
         profile=profile,
@@ -157,7 +234,7 @@ def search():
         top_language=top_language,
         top_repo=top_repo,
         recent=recent,
-        analytics=build_analytics(repos),
+        analytics=analytics,
         error=None,
     )
 

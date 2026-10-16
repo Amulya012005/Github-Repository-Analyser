@@ -1,7 +1,9 @@
+import pandas as pd
 import pytest
 
 import app as app_module
-from app import app, build_analytics, fetch_all_repos, get_user_data, gh_get, GitHubError
+from app import (app, build_analytics, build_insights, build_language_trend,
+                 fetch_all_repos, get_user_data, gh_get, GitHubError)
 
 
 def make_repo(name, stars, language, created, fork=False, forks=0):
@@ -122,3 +124,26 @@ def test_results_are_cached(monkeypatch):
     get_user_data("octocat")
     get_user_data("octocat")
     assert len(calls) == 2  # profile + repos once; second call came from the cache
+
+def test_build_insights_score_and_tips():
+    now = pd.Timestamp.now(tz="UTC")
+    recent = (now - pd.Timedelta(days=10)).isoformat()
+    old = (now - pd.Timedelta(days=500)).isoformat()
+    repos = [
+        {**make_repo("a", 1, "Python", "2022-01-01T00:00:00Z"),
+         "description": "x", "topics": ["flask"], "license": {"key": "mit"}, "pushed_at": recent},
+        {**make_repo("b", 0, "Python", "2022-01-01T00:00:00Z"),
+         "description": "", "topics": [], "license": None, "pushed_at": old},
+    ]
+    i = build_insights(repos)
+    assert i["score"] == 49
+    assert i["active"] == 1 and i["stale"] == 1
+    assert any("Add a description to 1 repo" in t for t in i["tips"])
+
+
+def test_build_language_trend():
+    t = build_language_trend(REPOS)
+    assert t["labels"] == ["2021", "2022"]
+    data = {d["label"]: d["data"] for d in t["datasets"]}
+    assert data["Python"] == [1, 1]
+    assert data["JavaScript"] == [0, 1]

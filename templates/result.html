@@ -118,6 +118,33 @@
         <div class="chart-box"><canvas id="yearChart"></canvas></div>
     </div>
 
+    {% if analytics.insights %}
+    <div class="chart-card">
+        <h3>Profile Health Score: {{ analytics.insights.score }}/100</h3>
+        <p style="font-size:13px;color:#666;">Based on {{ analytics.insights.original_count }} original repos. This is a simple heuristic, not an official GitHub metric.</p>
+        <table class="lang-table">
+            <tr><td>Repos with a description</td><td>{{ analytics.insights.pct_description }}%</td></tr>
+            <tr><td>Repos with topics</td><td>{{ analytics.insights.pct_topics }}%</td></tr>
+            <tr><td>Repos with a license</td><td>{{ analytics.insights.pct_license }}%</td></tr>
+            <tr><td>Updated in the last 6 months</td><td>{{ analytics.insights.active }} repos</td></tr>
+            <tr><td>Not updated for over a year</td><td>{{ analytics.insights.stale }} repos</td></tr>
+        </table>
+        {% if analytics.insights.tips %}
+        <h4 style="margin:14px 0 6px;">How to improve</h4>
+        <ul>
+            {% for tip in analytics.insights.tips %}<li>{{ tip }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if analytics.trend %}
+    <div class="chart-card">
+        <h3>Languages Over Time</h3>
+        <div class="chart-box"><canvas id="trendChart"></canvas></div>
+    </div>
+    {% endif %}
+
     {% endif %}
 
     <hr>
@@ -171,6 +198,21 @@
             data: { labels: A.years.labels, datasets: [{ data: A.years.values, backgroundColor: "#10b981" }] },
             options: barOptions
         });
+
+        const trendEl = document.getElementById("trendChart");
+        if (trendEl && A.trend) {
+            new Chart(trendEl, {
+                type: "bar",
+                data: {
+                    labels: A.trend.labels,
+                    datasets: A.trend.datasets.map((d, i) => ({ ...d, backgroundColor: palette[i % palette.length] }))
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
     </script>
     {% endif %}
 
